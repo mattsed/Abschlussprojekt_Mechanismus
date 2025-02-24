@@ -118,6 +118,19 @@ with st.sidebar:
         p2x = st.number_input("p2.x (fix)", value=0.0)
         p2y = st.number_input("p2.y (fix)", value=0.0)
         p2 = (p2x, p2y)
+    with st.expander("test"):
+        p0x = st.number_input("p0.x (Start)", value=-15.0)
+        p0y = st.number_input("p0.y (Start)", value=10.0)
+        p0_start = (p0x, p0y) 
+    with st.expander("test"):
+        p1x = st.number_input("p1.x (Start)", value=-10.0)
+        p1y = st.number_input("p1.y (Start)", value=30.0)
+        p1_start = (p1x, p1y)  
+
+mechanism = Mechanism(Point(*c, "c"), Point(*p0_start, "p0"), Point(*p1_start, "p1"), Point(*p2, "p2"))
+
+
+
 # Beliebig viele extra Gelenke 
 if "extra_joints" not in st.session_state:
     st.session_state.extra_joints = {}  
@@ -193,41 +206,42 @@ with st.sidebar:
 # ---------------------------------------------------------------------
 # JSON Speichern/Laden
 # ---------------------------------------------------------------------
-col1, col2 = st.columns(2)
-with col1:
-    if st.button("Speichere Einstellungen in JSON"):
-        data = {
-            "c": (c.x, c.y),
-            "p2": (p2.x, p2.y),
-            "p0": (p0.x, p0.y),
-            "p1": (p1.x, p1.y),
-            "theta": mechanism.theta,
-            "step_size": step_size,
-            "coupler_choice": coupler_choice
-        }
-        with open("mechanism.json", "w", encoding="utf-8") as f:
-            json.dump(data, f, ensure_ascii=False, indent=2)
-        st.success("Einstellungen gespeichert!")
+with st.sidebar:
+    col1, col2 = st.columns(2)
+    with col1:
+        if st.button("Speichere Einstellungen in JSON"):
+            data = {
+                "c": (c.x, c.y),
+                "p2": (p2.x, p2.y),
+                "p0": (p0.x, p0.y),
+                "p1": (p1.x, p1.y),
+                "theta": mechanism.theta,
+                "step_size": step_size,
+                "coupler_choice": coupler_choice
+            }
+            with open("mechanism.json", "w", encoding="utf-8") as f:
+                json.dump(data, f, ensure_ascii=False, indent=2)
+            st.success("Einstellungen gespeichert!")
 
-with col2:
-    if st.button("Lade Einstellungen aus JSON"):
-        try:
-            with open("mechanism.json", "r", encoding="utf-8") as f:
-                data = json.load(f)
+    with col2:
+        if st.button("Lade Einstellungen aus JSON"):
+            try:
+                with open("mechanism.json", "r", encoding="utf-8") as f:
+                    data = json.load(f)
 
-            # Erstelle Mechanismus mit geladenen Werten neu
-            c = Point(*data["c"], "c")
-            p2 = Point(*data["p2"], "p2")
-            p0 = Point(*data["p0"], "p0")
-            p1 = Point(*data["p1"], "p1")
+                # Erstelle Mechanismus mit geladenen Werten neu
+                c = Point(*data["c"], "c")
+                p2 = Point(*data["p2"], "p2")
+                p0 = Point(*data["p0"], "p0")
+                p1 = Point(*data["p1"], "p1")
 
-            st.session_state.mechanism = Mechanism(c, p0, p1, p2)
-            st.session_state.running = False
-            st.success("Einstellungen geladen!")
-        except FileNotFoundError:
-            st.error("mechanism.json nicht gefunden.")
-        except Exception as e:
-            st.error(f"Fehler beim Laden: {e}")
+                st.session_state.mechanism = Mechanism(c, p0, p1, p2)
+                st.session_state.running = False
+                st.success("Einstellungen geladen!")
+            except FileNotFoundError:
+                st.error("mechanism.json nicht gefunden.")
+            except Exception as e:
+                st.error(f"Fehler beim Laden: {e}")
 
 # ---------------------------------------------------------------------
 # Animation
