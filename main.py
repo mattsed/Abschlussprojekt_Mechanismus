@@ -3,6 +3,10 @@ import numpy as np
 import matplotlib.pyplot as plt
 import time
 import json
+import os
+
+# JSON-Datei für gespeicherte Mechanismen
+MECHANISM_FILE = "mechanisms.json"
 
 # ---------------------------------------------------------------
 # (A) Hilfsklasse: Punkt
@@ -102,6 +106,9 @@ def circle_intersection(centerA, rA, centerB, rB, pick_upper=True):
 # ---------------------------------------------------------------------
 st.title("Fixe Gliederlängen: p0 rotiert um c, Coupler auf gekrümmter Bahn")
 
+# Mechanismus Nameingabe
+mechanism_name = st.text_input("Mechanismus Name", value="Neuer Mechanismus")
+
 # Punkteingabe
 cx, cy = -30.0, 0.0
 p2x = st.number_input("p2.x", value=0.0)
@@ -136,43 +143,44 @@ if st.button("Animation starten / stoppen"):
     st.session_state.running = not st.session_state.running
 
 # ---------------------------------------------------------------------
-# JSON Speichern/Laden
+# JSON Speichern/Laden mit Namensverwaltung
 # ---------------------------------------------------------------------
-col1, col2 = st.columns(2)
-with col1:
-    if st.button("Speichere Einstellungen in JSON"):
-        data = {
-            "c": (c.x, c.y),
-            "p2": (p2.x, p2.y),
-            "p0": (p0.x, p0.y),
-            "p1": (p1.x, p1.y),
-            "theta": mechanism.theta,
-            "step_size": step_size,
-            "coupler_choice": coupler_choice
-        }
-        with open("mechanism.json", "w", encoding="utf-8") as f:
-            json.dump(data, f, ensure_ascii=False, indent=2)
-        st.success("Einstellungen gespeichert!")
 
-with col2:
-    if st.button("Lade Einstellungen aus JSON"):
-        try:
-            with open("mechanism.json", "r", encoding="utf-8") as f:
-                data = json.load(f)
+# Lade vorhandene Mechanismen
+if os.path.exists(MECHANISM_FILE):
+    with open(MECHANISM_FILE, "r", encoding="utf-8") as f:
+        stored_mechanisms = json.load(f)
+else:
+    stored_mechanisms = {}
 
-            # Erstelle Mechanismus mit geladenen Werten neu
-            c = Point(*data["c"], "c")
-            p2 = Point(*data["p2"], "p2")
-            p0 = Point(*data["p0"], "p0")
-            p1 = Point(*data["p1"], "p1")
+# Speichern
+if st.button("Speichere Mechanismus"):
+    stored_mechanisms[mechanism_name] = {
+        "c": (c.x, c.y),
+        "p2": (p2.x, p2.y),
+        "p0": (p0.x, p0.y),
+        "p1": (p1.x, p1.y),
+        "theta": mechanism.theta,
+        "step_size": step_size,
+        "coupler_choice": coupler_choice
+    }
+    with open(MECHANISM_FILE, "w", encoding="utf-8") as f:
+        json.dump(stored_mechanisms, f, ensure_ascii=False, indent=2)
+    st.success(f"Mechanismus '{mechanism_name}' gespeichert!")
 
-            st.session_state.mechanism = Mechanism(c, p0, p1, p2)
-            st.session_state.running = False
-            st.success("Einstellungen geladen!")
-        except FileNotFoundError:
-            st.error("mechanism.json nicht gefunden.")
-        except Exception as e:
-            st.error(f"Fehler beim Laden: {e}")
+# Auswahl gespeicherter Mechanismen
+selected_mechanism = st.selectbox("Lade gespeicherten Mechanismus", [""] + list(stored_mechanisms.keys()))
+
+if st.button("Lade Mechanismus") and selected_mechanism:
+    data = stored_mechanisms[selected_mechanism]
+    c.move_to(*data["c"])
+    p2.move_to(*data["p2"])
+    p0.move_to(*data["p0"])
+    p1.move_to(*data["p1"])
+
+    st.session_state.mechanism = Mechanism(c, p0, p1, p2)
+    st.session_state.running = False
+    st.success(f"Mechanismus '{selected_mechanism}' geladen!")
 
 # ---------------------------------------------------------------------
 # Animation
