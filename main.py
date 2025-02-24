@@ -219,7 +219,7 @@ with col2:
 # ---------------------------------------------------------------------
 plot_placeholder = st.empty()
 while st.session_state.running:
-    mechanism.update_mechanism(step_size, coupler_choice)
+    Mechanism.update_mechanism(step_size, coupler_choice)
 
     fig, ax = plt.subplots()
     points = [c, p0, p1, p2]
@@ -230,7 +230,7 @@ while st.session_state.running:
     for p in points:
         ax.text(p.x + 0.3, p.y + 0.3, p.name, color="red")
 
-    for link in mechanism.links:
+    for link in Mechanism.links:
         ax.plot([link.p1.x, link.p2.x], [link.p1.y, link.p2.y], color="blue", lw=2)
         
     ax.set_aspect("equal")
