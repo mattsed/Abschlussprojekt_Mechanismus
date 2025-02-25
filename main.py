@@ -4,9 +4,11 @@ import matplotlib.pyplot as plt
 import time
 import json
 import os
+import csv
 
 # JSON-Datei für gespeicherte Mechanismen
 MECHANISM_FILE = "mechanisms.json"
+CSV_FILE = "coordinates.csv"
 
 # ---------------------------------------------------------------
 # (A) Hilfsklasse: Punkt
@@ -73,6 +75,37 @@ class Mechanism:
         self.points = [p for p in self.points if p.name != point_name]
         self.links = [link for link in self.links if link.p1.name != point_name and link.p2.name != point_name]
 
+    def save_coordinates_to_csv(self, step_size):
+        with open(CSV_FILE, mode='w', newline='') as file:
+            writer = csv.writer(file)
+            writer.writerow(["Angle (degrees)", "Point", "x", "y"])
+            for angle in range(0, 360, step_size):
+                self.theta = np.radians(angle)
+                self.update_mechanism(0)  # Update mechanism without changing theta
+                writer.writerow([angle, "c", self.c.x, self.c.y])
+                writer.writerow([angle, "p0", self.p0.x, self.p0.y])
+
+# ---------------------------------------------------------------
+# (D) Hilfsfunktion: Schnitt zweier Kreise (Coupler-Berechnung)
+# ---------------------------------------------------------------
+def circle_intersection(centerA, rA, centerB, rB, pick_upper=True):
+    A = np.array(centerA, dtype=float)
+    B = np.array(centerB, dtype=float)
+    d = np.linalg.norm(B - A)
+    if d > rA + rB or d < abs(rA - rB):
+        return None
+
+    a = (rA**2 - rB**2 + d**2) / (2 * d)
+    h = np.sqrt(max(rA**2 - a**2, 0.0))
+    M = A + a * (B - A) / d
+    dir_vec = (B - A) / d
+    perp_vec = np.array([-dir_vec[1], dir_vec[0]])
+
+    p_int_1 = M + h * perp_vec
+    p_int_2 = M - h * perp_vec
+
+    return p_int_1 if pick_upper else p_int_2
+
 # ---------------------------------------------------------------------
 # UI: Mechanismus-Steuerung
 # ---------------------------------------------------------------------
@@ -82,10 +115,9 @@ st.title("Ebener Mechanismus-Simulator")
 mechanism_name = st.text_input("Mechanismus Name", value="")
 
 # Punkteingabe
-cx, cy = 0.0, 0.0
-
-p0x = st.number_input("p0.x", value=-15.0)
-p0y = st.number_input("p0.y", value=10.0)
+cx, cy = st.number_input("c.x", value=38.0), st.number_input("c.y", value=7.8)
+p0x = st.number_input("p0.x", value=0.00)
+p0y = st.number_input("p0.y", value=0.00)
 
 # Mechanismus erstellen
 c = Point(cx, cy, "c")
@@ -96,6 +128,15 @@ if "mechanism" not in st.session_state:
     st.session_state.mechanism = Mechanism(c, p0)
 
 mechanism = st.session_state.mechanism
+
+# Update points with new values
+if st.button("Aktualisiere Punkte"):
+    mechanism.c.move_to(cx, cy)
+    mechanism.p0.move_to(p0x, p0y)
+    # Enforce the length of all links
+    for link in mechanism.links:
+        link.enforce_length()
+    st.success("Punkte wurden aktualisiert!")
 
 # Punkteingabe für neue Punkte
 st.header("Punkte hinzufügen")
@@ -207,8 +248,15 @@ while st.session_state.running:
         ax.plot([link.p1.x, link.p2.x], [link.p1.y, link.p2.y], color="blue", lw=2)
         
     ax.set_aspect("equal")
-    ax.set_xlim(-60, 60)
-    ax.set_ylim(-30, 60)
+    ax.set_xlim(-100, 100)
+    ax.set_ylim(-100, 100)
     plot_placeholder.pyplot(fig)
 
     time.sleep(0.1)
+
+# ---------------------------------------------------------------------
+# Save coordinates to CSV
+# ---------------------------------------------------------------------
+if st.button("Speichere Koordinaten zu CSV"):
+    mechanism.save_coordinates_to_csv(step_size)
+    st.success("Koordinaten wurden in die CSV-Datei gespeichert!")
