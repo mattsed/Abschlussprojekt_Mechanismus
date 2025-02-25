@@ -4,9 +4,11 @@ import matplotlib.pyplot as plt
 import time
 import json
 import os
+import csv
 
 # JSON-Datei für gespeicherte Mechanismen
 MECHANISM_FILE = "mechanisms.json"
+CSV_FILE = "coordinates.csv"
 
 # ---------------------------------------------------------------
 # (A) Hilfsklasse: Punkt
@@ -87,6 +89,19 @@ class Mechanism:
     def remove_point(self, point_name):
         self.points = [p for p in self.points if p.name != point_name]
         self.links = [link for link in self.links if link.p1.name != point_name and link.p2.name != point_name]
+
+    def save_coordinates_to_csv(self, step_size):
+        with open(CSV_FILE, mode='w', newline='') as file:
+            writer = csv.writer(file)
+            writer.writerow(["Angle (degrees)", "Point", "x", "y"])
+            for angle in range(0, 360, step_size):
+                self.theta = np.radians(angle)
+                self.update_mechanism(0)  # Update mechanism without changing theta
+                writer.writerow([angle, "p0", self.p0.x, self.p0.y])
+                writer.writerow([angle, "p1", self.p1.x, self.p1.y])
+                writer.writerow([angle, "p2", self.p2.x, self.p2.y])
+                for point in self.points:
+                    writer.writerow([angle, point.name, point.x, point.y])
 
 # ---------------------------------------------------------------
 # (D) Hilfsfunktion: Schnitt zweier Kreise (Coupler-Berechnung)
@@ -249,3 +264,10 @@ while st.session_state.running:
     plot_placeholder.pyplot(fig)
 
     time.sleep(0.1)
+
+# ---------------------------------------------------------------------
+# Save coordinates to CSV
+# ---------------------------------------------------------------------
+if st.button("Speichere Koordinaten zu CSV"):
+    mechanism.save_coordinates_to_csv(step_size)
+    st.success("Koordinaten wurden in die CSV-Datei gespeichert!")
