@@ -56,6 +56,7 @@ class Mechanism:
             Link(p1, p2)
         ]
         self.theta = 0.0
+        self.points = []
 
     def update_mechanism(self, step_size, coupler="p1"):
         """ Aktualisiert p0 durch Rotation um c und berechnet den Coupler """
@@ -79,6 +80,9 @@ class Mechanism:
 
         for link in self.links:
             link.enforce_length()
+        
+    def add_link(self, point1, point2):
+        self.links.append(Link(point1, point2))
 
 # ---------------------------------------------------------------
 # (D) Hilfsfunktion: Schnitt zweier Kreise (Coupler-Berechnung)
@@ -217,7 +221,7 @@ while st.session_state.running:
     mechanism.update_mechanism(step_size, coupler_choice)
 
     fig, ax = plt.subplots()
-    points = [mechanism.c, mechanism.p0, mechanism.p1, mechanism.p2]
+    points = [mechanism.c, mechanism.p0, mechanism.p1, mechanism.p2] + mechanism.points
     xs = [p.x for p in points]
     ys = [p.y for p in points]
 
