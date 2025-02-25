@@ -14,17 +14,19 @@ CSV_FILE = "coordinates.csv"
 # (A) Hilfsklasse: Punkt
 # ---------------------------------------------------------------
 class Point:
-    def __init__(self, x, y, name=""):
+    def __init__(self, x, y, name="", fixed=False):
         self.x = x
         self.y = y
         self.name = name
+        self.fixed = fixed
 
     def position(self):
         return (self.x, self.y)
 
     def move_to(self, x, y):
-        self.x = x
-        self.y = y
+        if not self.fixed:
+            self.x = x
+            self.y = y
 
 # ---------------------------------------------------------------
 # (B) Hilfsklasse: Link (Verbindungsstück mit fixer Länge)
@@ -50,9 +52,7 @@ class Mechanism:
     def __init__(self, c, p0):
         self.c = c  
         self.p0 = p0
-        self.links = [
-            Link(c, p0)
-        ]
+        self.links = [Link(c, p0)]
         self.theta = 0.0
         self.points = []
 
@@ -71,6 +71,9 @@ class Mechanism:
     def add_link(self, point1, point2):
         self.links.append(Link(point1, point2))
 
+    def remove_link(self, point1_name, point2_name):
+        self.links = [link for link in self.links if not ((link.p1.name == point1_name and link.p2.name == point2_name) or (link.p1.name == point1_name and link.p2.name == point2_name))]
+
     def remove_point(self, point_name):
         self.points = [p for p in self.points if p.name != point_name]
         self.links = [link for link in self.links if link.p1.name != point_name and link.p2.name != point_name]
@@ -82,29 +85,31 @@ class Mechanism:
             for angle in range(0, 360, step_size):
                 self.theta = np.radians(angle)
                 self.update_mechanism(0)  # Update mechanism without changing theta
-                writer.writerow([angle, "c", self.c.x, self.c.y])
                 writer.writerow([angle, "p0", self.p0.x, self.p0.y])
+                for point in self.points:
+                    writer.writerow([angle, point.name, point.x, point.y])
 
-# ---------------------------------------------------------------
-# (D) Hilfsfunktion: Schnitt zweier Kreise (Coupler-Berechnung)
-# ---------------------------------------------------------------
-def circle_intersection(centerA, rA, centerB, rB, pick_upper=True):
-    A = np.array(centerA, dtype=float)
-    B = np.array(centerB, dtype=float)
-    d = np.linalg.norm(B - A)
-    if d > rA + rB or d < abs(rA - rB):
-        return None
+    def to_dict(self):
+        return {
+            "c": (self.c.x, self.c.y),
+            "p0": (self.p0.x, self.p0.y),
+            "theta": self.theta,
+            "points": [(p.x, p.y, p.name, p.fixed) for p in self.points],
+            "links": [(link.p1.name, link.p2.name) for link in self.links],
+        }
 
-    a = (rA**2 - rB**2 + d**2) / (2 * d)
-    h = np.sqrt(max(rA**2 - a**2, 0.0))
-    M = A + a * (B - A) / d
-    dir_vec = (B - A) / d
-    perp_vec = np.array([-dir_vec[1], dir_vec[0]])
-
-    p_int_1 = M + h * perp_vec
-    p_int_2 = M - h * perp_vec
-
-    return p_int_1 if pick_upper else p_int_2
+    @classmethod
+    def from_dict(cls, data):
+        c = Point(*data["c"], "c")
+        p0 = Point(*data["p0"], "p0")
+        mechanism = cls(c, p0)
+        mechanism.theta = data["theta"]
+        mechanism.points = [Point(x, y, name, fixed) for x, y, name, fixed in data["points"]]
+        for p1_name, p2_name in data["links"]:
+            p1 = next(p for p in [mechanism.c, mechanism.p0] + mechanism.points if p.name == p1_name)
+            p2 = next(p for p in [mechanism.c, mechanism.p0] + mechanism.points if p.name == p2_name)
+            mechanism.add_link(p1, p2)
+        return mechanism
 
 # ---------------------------------------------------------------------
 # UI: Mechanismus-Steuerung
@@ -115,9 +120,11 @@ st.title("Ebener Mechanismus-Simulator")
 mechanism_name = st.text_input("Mechanismus Name", value="")
 
 # Punkteingabe
-cx, cy = st.number_input("c.x", value=38.0), st.number_input("c.y", value=7.8)
-p0x = st.number_input("p0.x", value=0.00)
-p0y = st.number_input("p0.y", value=0.00)
+cx = st.number_input("c.x", value=0.0)
+cy = st.number_input("c.y", value=0.0)
+
+p0x = st.number_input("p0.x", value=-15.0)
+p0y = st.number_input("p0.y", value=10.0)
 
 # Mechanismus erstellen
 c = Point(cx, cy, "c")
@@ -129,14 +136,11 @@ if "mechanism" not in st.session_state:
 
 mechanism = st.session_state.mechanism
 
-# Update points with new values
-if st.button("Aktualisiere Punkte"):
+# Update c and p0 coordinates if changed
+if st.button("Aktualisiere c und p0"):
     mechanism.c.move_to(cx, cy)
     mechanism.p0.move_to(p0x, p0y)
-    # Enforce the length of all links
-    for link in mechanism.links:
-        link.enforce_length()
-    st.success("Punkte wurden aktualisiert!")
+    st.success("Koordinaten von c und p0 wurden aktualisiert!")
 
 # Punkteingabe für neue Punkte
 st.header("Punkte hinzufügen")
@@ -161,7 +165,6 @@ if st.button("Link hinzufügen", key="add_link"):
     mechanism.add_link(point1, point2)
     st.success(f"Link zwischen '{point1_name}' und '{point2_name}' hinzugefügt!")
 
-# Coupler-Auswahl
 step_size = st.slider("Schrittweite (Grad)", 1, 20, 5)
 
 # Start/Stop Button
@@ -177,18 +180,16 @@ if st.button("Animation starten / stoppen"):
 # Lade vorhandene Mechanismen
 if os.path.exists(MECHANISM_FILE):
     with open(MECHANISM_FILE, "r", encoding="utf-8") as f:
-        stored_mechanisms = json.load(f)
+        try:
+            stored_mechanisms = json.load(f)
+        except json.JSONDecodeError:
+            stored_mechanisms = {}
 else:
     stored_mechanisms = {}
 
 # Speichern
 if st.button("Speichere Mechanismus"):
-    stored_mechanisms[mechanism_name] = {
-        "c": (c.x, c.y),
-        "p0": (p0.x, p0.y),
-        "theta": mechanism.theta,
-        "step_size": step_size
-    }
+    stored_mechanisms[mechanism_name] = mechanism.to_dict()
     with open(MECHANISM_FILE, "w", encoding="utf-8") as f:
         json.dump(stored_mechanisms, f, ensure_ascii=False, indent=2)
     st.success(f"Mechanismus '{mechanism_name}' gespeichert!")
@@ -198,10 +199,7 @@ selected_mechanism = st.selectbox("Lade gespeicherten Mechanismus", [""] + list(
 
 if st.button("Lade Mechanismus") and selected_mechanism:
     data = stored_mechanisms[selected_mechanism]
-    c.move_to(*data["c"])
-    p0.move_to(*data["p0"])
-
-    st.session_state.mechanism = Mechanism(c, p0)
+    st.session_state.mechanism = Mechanism.from_dict(data)
     st.session_state.running = False
     st.success(f"Mechanismus '{selected_mechanism}' geladen!")
 
@@ -210,23 +208,26 @@ if st.button("Lade Mechanismus") and selected_mechanism:
 # ---------------------------------------------------------------------
 st.header("Angelegte Punkte")
 for point in [mechanism.c, mechanism.p0] + mechanism.points:
-    cols = st.columns([3, 1])
+    cols = st.columns([3, 1, 1])
     cols[0].write(f"{point.name}: ({point.x}, {point.y})")
-    if cols[1].button("Löschen", key=f"delete_{point.name}"):
+    if point.name not in ["c", "p0"]:
+        fixed = cols[1].checkbox("Fixiert", value=point.fixed, key=f"fixed_{point.name}")
+        if fixed != point.fixed:
+            point.fixed = fixed
+    if cols[2].button("Löschen", key=f"delete_{point.name}"):
         mechanism.remove_point(point.name)
         st.experimental_rerun()
 
-# Hinzugefügte Links anzeigen und löschen
-st.header("Hinzugefügte Links")
-if mechanism.links:
-    for i, link in enumerate(mechanism.links):
-        cols = st.columns([3, 1])
-        cols[0].write(f"Link: {link.p1.name} - {link.p2.name}")
-        if cols[1].button("Löschen", key=f"delete_link_{link.p1.name}_{link.p2.name}_{i}"):
-            mechanism.links.pop(i)
-            st.experimental_rerun()
-else:
-    st.write("Keine Links hinzugefügt.")
+# ---------------------------------------------------------------------
+# Links anzeigen und löschen
+# ---------------------------------------------------------------------
+st.header("Angelegte Links")
+for i, link in enumerate(mechanism.links):
+    cols = st.columns([3, 1])
+    cols[0].write(f"Link: {link.p1.name} - {link.p2.name}")
+    if cols[1].button("Löschen", key=f"delete_link_{i}"):
+        mechanism.remove_link(link.p1.name, link.p2.name)
+        st.experimental_rerun()
 
 # ---------------------------------------------------------------------
 # Animation
