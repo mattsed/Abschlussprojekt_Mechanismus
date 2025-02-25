@@ -84,6 +84,10 @@ class Mechanism:
     def add_link(self, point1, point2):
         self.links.append(Link(point1, point2))
 
+    def remove_point(self, point_name):
+        self.points = [p for p in self.points if p.name != point_name]
+        self.links = [link for link in self.links if link.p1.name != point_name and link.p2.name != point_name]
+
 # ---------------------------------------------------------------
 # (D) Hilfsfunktion: Schnitt zweier Kreise (Coupler-Berechnung)
 # ---------------------------------------------------------------
@@ -108,10 +112,10 @@ def circle_intersection(centerA, rA, centerB, rB, pick_upper=True):
 # ---------------------------------------------------------------------
 # UI: Mechanismus-Steuerung
 # ---------------------------------------------------------------------
-st.title("Fixe Gliederlängen: p0 rotiert um c, Coupler auf gekrümmter Bahn")
+st.title("Ebener Mechanismus-Simulator")
 
 # Mechanismus Nameingabe
-mechanism_name = st.text_input("Mechanismus Name", value="Neuer Mechanismus")
+mechanism_name = st.text_input("Mechanismus Name", value="")
 
 # Punkteingabe
 cx, cy = -30.0, 0.0
@@ -137,6 +141,7 @@ if "mechanism" not in st.session_state:
 mechanism = st.session_state.mechanism
 
 # Punkteingabe für neue Punkte
+st.header("Punkte hinzufügen")
 new_point_name = st.text_input("Neuer Punkt Name", value="p3", key="new_point_name")
 new_point_x = st.number_input("Neuer Punkt x", value=0.0, key="new_point_x")
 new_point_y = st.number_input("Neuer Punkt y", value=0.0, key="new_point_y")
@@ -147,6 +152,7 @@ if st.button("Punkt hinzufügen", key="add_point"):
     st.success(f"Punkt '{new_point_name}' hinzugefügt!")
 
 # Punkte verlinken
+st.header("Punkte verlinken")   
 point_names = [p.name for p in [mechanism.c, mechanism.p0, mechanism.p1, mechanism.p2] + mechanism.points]
 point1_name = st.selectbox("Erster Punkt", point_names, key="link_point1")
 point2_name = st.selectbox("Zweiter Punkt", point_names, key="link_point2")
@@ -206,6 +212,17 @@ if st.button("Lade Mechanismus") and selected_mechanism:
     st.session_state.mechanism = Mechanism(c, p0, p1, p2)
     st.session_state.running = False
     st.success(f"Mechanismus '{selected_mechanism}' geladen!")
+
+# ---------------------------------------------------------------------
+# Punkte anzeigen und löschen
+# ---------------------------------------------------------------------
+st.header("Angelegte Punkte")
+for point in [mechanism.c, mechanism.p0, mechanism.p1, mechanism.p2] + mechanism.points:
+    cols = st.columns([3, 1])
+    cols[0].write(f"{point.name}: ({point.x}, {point.y})")
+    if cols[1].button("Löschen", key=f"delete_{point.name}"):
+        mechanism.remove_point(point.name)
+        st.experimental_rerun()
 
 # ---------------------------------------------------------------------
 # Animation
