@@ -18,7 +18,7 @@ CSV_FILE = "coordinates.csv"
 # UI: Mechanismus-Steuerung
 # ---------------------------------------------------------------------
 st.title("Ebener Mechanismus-Simulator")
-st.sidebar.subheader("Mechanismus eisntellen")
+st.sidebar.subheader("Mechanismus einstellen")
 # Lade vorhandene Mechanismen
 if os.path.exists(MECHANISM_FILE):
     with open(MECHANISM_FILE, "r", encoding="utf-8") as f:
@@ -94,8 +94,6 @@ with st.sidebar.expander(f"Neue Verbindung:"):
         mechanism.add_link(point1, point2)
         st.sidebar.success(f"Link zwischen '{point1_name}' und '{point2_name}' hinzugefügt!")
 
-
-
 # Slider für die Winkelgeschwindigkeit hinzufügen
 st.sidebar.header("Winkelgeschwindigkeit einstellen")
 angular_velocity = st.sidebar.slider("Winkelgeschwindigkeit (Grad pro Sekunde)", 1.0, 30.0, 1.0, step=1.0)
@@ -123,7 +121,6 @@ if st.sidebar.button("Speichere Mechanismus"):
 # Punkte anzeigen und löschen
 # ---------------------------------------------------------------------
 
-
 st.sidebar.header("hinzugefügte Punkte:")
 for point in [mechanism.c, mechanism.p0] + mechanism.points:
    with st.sidebar: 
@@ -138,10 +135,6 @@ for point in [mechanism.c, mechanism.p0] + mechanism.points:
         if cols[2].button("Löschen", key=f"delete_{point.name}"):
             mechanism.remove_point(point.name)
             st.experimental_rerun()
-
-
-
-
 
 # ---------------------------------------------------------------------
 # Links anzeigen und löschen
@@ -169,24 +162,46 @@ if link_data:
 else:
     st.sidebar.error("Keine Links im Mechanismus vorhanden.")
 
+# ---------------------------------------------------------------------
+# Ausgangsposition anzeigen
+# ---------------------------------------------------------------------
+def display_initial_position(mechanism):
+    fig, ax = plt.subplots()
+    points = [mechanism.c, mechanism.p0] + mechanism.points
+    xs = [p.x for p in points]
+    ys = [p.y for p in points]
 
-# ---------------------------------------------------------------------
+    ax.scatter(xs, ys, color="red")
+    for p in points:
+        ax.text(p.x + 0.3, p.y + 0.3, p.name, color="red")
+
+    for link in mechanism.links:
+        ax.plot([link.p1.x, link.p2.x], [link.p1.y, link.p2.y], color="blue", lw=2)
+
+    # Zeichne den gestrichelten roten Kreis um c
+    c = mechanism.c
+    p0 = mechanism.p0
+    radius = np.linalg.norm([p0.x - c.x, p0.y - c.y])
+    circle = plt.Circle((c.x, c.y), radius, color='red', linestyle='--', fill=False)
+    ax.add_artist(circle)
+
+    ax.set_aspect("equal")
+    ax.set_xlim(-100, 100)
+    ax.set_ylim(-100, 100)
+    st.pyplot(fig)
+
+# Ausgangsposition anzeigen
+st.header("Ausgangsposition des Systems")
+display_initial_position(mechanism)
+
 # Animation
-# ---------------------------------------------------------------------
 plot_placeholder = st.empty()
 
 # Start/Stop Button
 if "running" not in st.session_state:
     st.session_state.running = False
-if st.sidebar.button("Animation starten / stoppen"):
+
+if st.button("Animation starten / stoppen"):
     st.session_state.running = not st.session_state.running
 
 run_animation(plot_placeholder, mechanism, angular_velocity, selected_point_name)
-
-# ---------------------------------------------------------------------
-# Save coordinates to CSV
-# ---------------------------------------------------------------------
-if st.sidebar.button("Speichere Koordinaten zu CSV"):
-    mechanism.save_coordinates_to_csv(angular_velocity)
-    st.success("Koordinaten wurden in die CSV-Datei gespeichert!")
-

@@ -1,5 +1,6 @@
 import streamlit as st
 import matplotlib.pyplot as plt
+import numpy as np
 import time
 
 def run_animation(plot_placeholder, mechanism, angular_velocity, selected_point_name):
@@ -23,6 +24,13 @@ def run_animation(plot_placeholder, mechanism, angular_velocity, selected_point_
         st.session_state.trajectory.append((selected_point.x, selected_point.y))
         traj_xs, traj_ys = zip(*st.session_state.trajectory)
         ax.plot(traj_xs, traj_ys, color="green", lw=1)
+
+        # Zeichne den gestrichelten roten Kreis um c
+        c = mechanism.c
+        p0 = mechanism.p0
+        radius = np.linalg.norm([p0.x - c.x, p0.y - c.y])
+        circle = plt.Circle((c.x, c.y), radius, color='red', linestyle='--', fill=False)
+        ax.add_artist(circle)
 
         ax.set_aspect("equal")
         ax.set_xlim(-100, 100)
