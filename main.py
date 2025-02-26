@@ -18,7 +18,7 @@ CSV_FILE = "coordinates.csv"
 # UI: Mechanismus-Steuerung
 # ---------------------------------------------------------------------
 st.title("Ebener Mechanismus-Simulator")
-st.sidebar.title("Mechanismus Konfiguration")
+st.sidebar.subheader("Mechanismus eisntellen")
 # Lade vorhandene Mechanismen
 if os.path.exists(MECHANISM_FILE):
     with open(MECHANISM_FILE, "r", encoding="utf-8") as f:
@@ -122,38 +122,52 @@ if st.sidebar.button("Speichere Mechanismus"):
 # ---------------------------------------------------------------------
 # Punkte anzeigen und löschen
 # ---------------------------------------------------------------------
-st.sidebar.header("Angelegte Punkte")
-point_data = []
-for point in [mechanism.c, mechanism.p0] + mechanism.points:
-        point_data.append({
-            "Punkt": point.name,
-            "Koordinaten": f"({point.x}, {point.y})",
-            "Fixieren": point.fixed
-        })
 
-if point_data:
-        df_points = pd.DataFrame(point_data)
-        st.sidebar.dataframe(df_points, height=400)
-else:
-        st.error("Keine Punkte im Mechanismus vorhanden.")
+
+st.sidebar.header("hinzugefügte Punkte:")
+for point in [mechanism.c, mechanism.p0] + mechanism.points:
+   with st.sidebar: 
+        cols = st.columns([3, 1, 1])
+        cols[0].write(f"{point.name}: ({point.x}, {point.y})")
+
+        if point.name not in ["c", "p0"]:
+            fixed = cols[1].checkbox("Fixieren", value=point.fixed, key=f"fixed_{point.name}")
+            if fixed != point.fixed:
+                point.fixed = fixed
+                
+        if cols[2].button("Löschen", key=f"delete_{point.name}"):
+            mechanism.remove_point(point.name)
+            st.experimental_rerun()
+
+
+
+
 
 # ---------------------------------------------------------------------
 # Links anzeigen und löschen
 # ---------------------------------------------------------------------
-st.sidebar.header("Angelegte Links")
+st.sidebar.header("Hinzugefügte Links:")
 link_data = []
 for i, link in enumerate(mechanism.links):
-        link_data.append({
-            "Link": f"{link.p1.name} - {link.p2.name}",
-            "Länge": f"{link.length:.2f}"
-        })
+    link_data.append({
+        "Link": f"{link.p1.name} - {link.p2.name}",
+        "Länge": f"{link.length:.2f}"
+    })
 
 if link_data:
-        df_links = pd.DataFrame(link_data)
-        st.sidebar.dataframe(df_links, height=400)
-else:
-        st.error("Keine Links im Mechanismus vorhanden.")
+    df_links = pd.DataFrame(link_data)
+    st.sidebar.dataframe(df_links, height=300)  # Höhe der Tabelle angepasst
 
+    # Button zum Herunterladen der Stückliste als CSV
+    csv = df_links.to_csv(index=False).encode('utf-8')
+    st.sidebar.download_button(
+        label="Stückliste als CSV herunterladen",
+        data=csv,
+        file_name='stueckliste.csv',
+        mime='text/csv',
+    )
+else:
+    st.sidebar.error("Keine Links im Mechanismus vorhanden.")
 
 
 # ---------------------------------------------------------------------
