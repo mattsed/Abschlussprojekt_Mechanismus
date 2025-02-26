@@ -187,13 +187,25 @@ if st.button("Link hinzufügen", key="add_link"):
     mechanism.add_link(point1, point2)
     st.success(f"Link zwischen '{point1_name}' und '{point2_name}' hinzugefügt!")
 
-step_size = st.slider("Schrittweite (Grad)", 1, 20, 5)
+#step_size = st.slider("Schrittweite (Grad)", 1, 20, 5)
+
+# Slider für die Winkelgeschwindigkeit hinzufügen
+st.header("Winkelgeschwindigkeit einstellen")
+angular_velocity = st.slider("Winkelgeschwindigkeit (Grad pro Sekunde)", 1.0, 10.0, 1.0, step=0.1)
+
+# Auswahl des Punktes für die Bahnkurve
+st.header("Bahnkurve anzeigen")
+selected_point_name = st.selectbox("Wähle einen Punkt für die Bahnkurve", point_names, key="selected_point")
 
 # Start/Stop Button
 if "running" not in st.session_state:
     st.session_state.running = False
 if st.button("Animation starten / stoppen"):
     st.session_state.running = not st.session_state.running
+
+# Liste zur Speicherung der Bahnkurve
+if "trajectory" not in st.session_state:
+    st.session_state.trajectory = []
 
 # ---------------------------------------------------------------------
 # JSON Speichern/Laden mit Namensverwaltung
@@ -223,6 +235,7 @@ if st.button("Lade Mechanismus") and selected_mechanism:
     data = stored_mechanisms[selected_mechanism]
     st.session_state.mechanism = Mechanism.from_dict(data)
     st.session_state.running = False
+    st.session_state.trajectory = []
     st.success(f"Mechanismus '{selected_mechanism}' geladen!")
 
 # ---------------------------------------------------------------------
@@ -256,7 +269,7 @@ for i, link in enumerate(mechanism.links):
 # ---------------------------------------------------------------------
 plot_placeholder = st.empty()
 while st.session_state.running:
-    mechanism.update_mechanism(step_size)
+    mechanism.update_mechanism(angular_velocity)  # Verwenden Sie den Wert des Sliders
 
     fig, ax = plt.subplots()
     points = [mechanism.c, mechanism.p0] + mechanism.points
@@ -269,13 +282,19 @@ while st.session_state.running:
 
     for link in mechanism.links:
         ax.plot([link.p1.x, link.p2.x], [link.p1.y, link.p2.y], color="blue", lw=2)
-        
+
+    # Bahnkurve des ausgewählten Punktes aktualisieren
+    selected_point = next(p for p in points if p.name == selected_point_name)
+    st.session_state.trajectory.append((selected_point.x, selected_point.y))
+    traj_xs, traj_ys = zip(*st.session_state.trajectory)
+    ax.plot(traj_xs, traj_ys, color="green", lw=1)
+
     ax.set_aspect("equal")
     ax.set_xlim(-100, 100)
     ax.set_ylim(-100, 100)
     plot_placeholder.pyplot(fig)
 
-    time.sleep(0.1)
+    time.sleep(0.01)  # Reduzieren Sie die Wartezeit, um die Simulation schneller zu machen
 
 # ---------------------------------------------------------------------
 # Save coordinates to CSV
