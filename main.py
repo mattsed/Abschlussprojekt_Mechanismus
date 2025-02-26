@@ -5,131 +5,14 @@ import time
 import json
 import os
 import csv
-from scipy.optimize import minimize
+from point import Point
+#from link import Link
+from mechanism import Mechanism
+from animation import run_animation  # Importieren Sie die ausgelagerte Animationsfunktion
 
 # JSON-Datei für gespeicherte Mechanismen
 MECHANISM_FILE = "mechanisms.json"
 CSV_FILE = "coordinates.csv"
-
-# ---------------------------------------------------------------
-# (A) Hilfsklasse: Punkt
-# ---------------------------------------------------------------
-class Point:
-    def __init__(self, x, y, name="", fixed=False):
-        self.x = x
-        self.y = y
-        self.name = name
-        self.fixed = fixed
-
-    def position(self):
-        return np.array([self.x, self.y])
-
-    def move_to(self, x, y):
-        if not self.fixed:
-            self.x = x
-            self.y = y
-
-# ---------------------------------------------------------------
-# (B) Hilfsklasse: Link (Verbindungsstück mit fixer Länge)
-# ---------------------------------------------------------------
-class Link:
-    def __init__(self, point1, point2):
-        self.p1 = point1
-        self.p2 = point2
-        self.length = np.linalg.norm(self.p2.position() - self.p1.position())
-
-    def enforce_length(self):
-        vec = self.p2.position() - self.p1.position()
-        if np.linalg.norm(vec) == 0:
-            return
-        unit_vec = vec / np.linalg.norm(vec)
-        new_pos = self.p1.position() + self.length * unit_vec
-        self.p2.move_to(*new_pos)
-
-# ---------------------------------------------------------------
-# (C) Hauptklasse: Mechanismus
-# ---------------------------------------------------------------
-class Mechanism:
-    def __init__(self, c, p0):
-        self.c = c  
-        self.p0 = p0
-        self.links = [Link(c, p0)]
-        self.theta = 0.0
-        self.points = []
-
-    def update_mechanism(self, step_size):
-        """ Aktualisiert p0 durch Rotation um c """
-        self.theta += np.radians(step_size)
-
-        r = self.links[0].length  
-        new_p0_x = self.c.x + r * np.cos(self.theta)
-        new_p0_y = self.c.y + r * np.sin(self.theta)
-        self.p0.move_to(new_p0_x, new_p0_y)
-
-        self.optimize_lengths()
-
-    def optimize_lengths(self): 
-        def error_function(coords):
-            error = 0
-            for i, point in enumerate(self.points):
-                x, y = coords[2 * i], coords[2 * i + 1]
-                point.move_to(x, y)
-            for link in self.links:
-                error += (np.linalg.norm(link.p2.position() - link.p1.position()) - link.length) ** 2
-            return error
-        
-        initial_positions = []
-        for point in self.points:
-            initial_positions.extend([point.x, point.y])
-
-        result = minimize(error_function, initial_positions, method='Powell')
-        optimized_positions = result.x
-
-        for i, point in enumerate(self.points):
-            point.move_to(optimized_positions[2 * i], optimized_positions[2 * i + 1])
-
-    def add_link(self, point1, point2):
-        self.links.append(Link(point1, point2))
-
-    def remove_link(self, point1_name, point2_name):
-        self.links = [link for link in self.links if not ((link.p1.name == point1_name and link.p2.name == point2_name) or (link.p1.name == point2_name and link.p2.name == point1_name))]
-
-    def remove_point(self, point_name):
-        self.points = [p for p in self.points if p.name != point_name]
-        self.links = [link for link in self.links if link.p1.name != point_name and link.p2.name != point_name]
-
-    def save_coordinates_to_csv(self, step_size):
-        with open(CSV_FILE, mode='w', newline='') as file:
-            writer = csv.writer(file)
-            writer.writerow(["Angle (degrees)", "Point", "x", "y"])
-            for angle in range(0, 360, step_size):
-                self.theta = np.radians(angle)
-                self.update_mechanism(0)  # Update mechanism without changing theta
-                writer.writerow([angle, "p0", self.p0.x, self.p0.y])
-                for point in self.points:
-                    writer.writerow([angle, point.name, point.x, point.y])
-
-    def to_dict(self):
-        return {
-            "c": (self.c.x, self.c.y),
-            "p0": (self.p0.x, self.p0.y),
-            "theta": self.theta,
-            "points": [(p.x, p.y, p.name, p.fixed) for p in self.points],
-            "links": [(link.p1.name, link.p2.name) for link in self.links],
-        }
-
-    @classmethod
-    def from_dict(cls, data):
-        c = Point(*data["c"], "c")
-        p0 = Point(*data["p0"], "p0")
-        mechanism = cls(c, p0)
-        mechanism.theta = data["theta"]
-        mechanism.points = [Point(x, y, name, fixed) for x, y, name, fixed in data["points"]]
-        for p1_name, p2_name in data["links"]:
-            p1 = next(p for p in [mechanism.c, mechanism.p0] + mechanism.points if p.name == p1_name)
-            p2 = next(p for p in [mechanism.c, mechanism.p0] + mechanism.points if p.name == p2_name)
-            mechanism.add_link(p1, p2)
-        return mechanism
 
 # ---------------------------------------------------------------------
 # UI: Mechanismus-Steuerung
@@ -186,8 +69,6 @@ if st.button("Link hinzufügen", key="add_link"):
     point2 = next(p for p in [mechanism.c, mechanism.p0] + mechanism.points if p.name == point2_name)
     mechanism.add_link(point1, point2)
     st.success(f"Link zwischen '{point1_name}' und '{point2_name}' hinzugefügt!")
-
-#step_size = st.slider("Schrittweite (Grad)", 1, 20, 5)
 
 # Slider für die Winkelgeschwindigkeit hinzufügen
 st.header("Winkelgeschwindigkeit einstellen")
@@ -268,37 +149,11 @@ for i, link in enumerate(mechanism.links):
 # Animation
 # ---------------------------------------------------------------------
 plot_placeholder = st.empty()
-while st.session_state.running:
-    mechanism.update_mechanism(angular_velocity)  # Verwenden Sie den Wert des Sliders
-
-    fig, ax = plt.subplots()
-    points = [mechanism.c, mechanism.p0] + mechanism.points
-    xs = [p.x for p in points]
-    ys = [p.y for p in points]
-
-    ax.scatter(xs, ys, color="red")
-    for p in points:
-        ax.text(p.x + 0.3, p.y + 0.3, p.name, color="red")
-
-    for link in mechanism.links:
-        ax.plot([link.p1.x, link.p2.x], [link.p1.y, link.p2.y], color="blue", lw=2)
-
-    # Bahnkurve des ausgewählten Punktes aktualisieren
-    selected_point = next(p for p in points if p.name == selected_point_name)
-    st.session_state.trajectory.append((selected_point.x, selected_point.y))
-    traj_xs, traj_ys = zip(*st.session_state.trajectory)
-    ax.plot(traj_xs, traj_ys, color="green", lw=1)
-
-    ax.set_aspect("equal")
-    ax.set_xlim(-100, 100)
-    ax.set_ylim(-100, 100)
-    plot_placeholder.pyplot(fig)
-
-    time.sleep(0.01)  # Reduzieren Sie die Wartezeit, um die Simulation schneller zu machen
+run_animation(plot_placeholder, mechanism, angular_velocity, selected_point_name)
 
 # ---------------------------------------------------------------------
 # Save coordinates to CSV
 # ---------------------------------------------------------------------
 if st.button("Speichere Koordinaten zu CSV"):
-    mechanism.save_coordinates_to_csv(step_size)
+    mechanism.save_coordinates_to_csv(angular_velocity)
     st.success("Koordinaten wurden in die CSV-Datei gespeichert!")
