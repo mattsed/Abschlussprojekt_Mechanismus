@@ -1,5 +1,6 @@
 import streamlit as st
 import numpy as np
+import pandas as pd
 import matplotlib.pyplot as plt
 import time
 import json
@@ -144,6 +145,28 @@ for i, link in enumerate(mechanism.links):
     if cols[1].button("Löschen", key=f"delete_link_{link.p1.name}_{link.p2.name}_{i}"):
         mechanism.remove_link(link.p1.name, link.p2.name)
         st.experimental_rerun()
+
+# ---------------------------------------------------------------------
+# Stückliste der Glieder
+# ---------------------------------------------------------------------
+st.header("Stückliste der Glieder")
+if st.button("Stückliste erstellen"):
+    rod_data = []
+    for link in mechanism.links:
+        rod_data.append({
+            "Glied": f"{link.p1.name} - {link.p2.name}",
+            "Länge": f"{link.length:.2f}"
+        })
+
+    if rod_data:
+        df_rods = pd.DataFrame(rod_data)
+        st.dataframe(df_rods, height=400)
+    else:
+        st.error("Keine Glieder im Mechanismus vorhanden.")
+
+
+
+
 
 # ---------------------------------------------------------------------
 # Animation

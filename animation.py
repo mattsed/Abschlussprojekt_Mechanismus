@@ -29,4 +29,4 @@ def run_animation(plot_placeholder, mechanism, angular_velocity, selected_point_
         ax.set_ylim(-100, 100)
         plot_placeholder.pyplot(fig)
 
-        time.sleep(0.01)  # Reduzieren Sie die Wartezeit, um die Simulation schneller zu machen
+        time.sleep(0.01)
