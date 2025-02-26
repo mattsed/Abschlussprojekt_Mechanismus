@@ -160,6 +160,8 @@ mechanism = st.session_state.mechanism
 if st.button("Aktualisiere c und p0"):
     mechanism.c.move_to(cx, cy)
     mechanism.p0.move_to(p0x, p0y)
+    # Update the length of the link between c and p0
+    mechanism.links[0].length = np.linalg.norm(mechanism.p0.position() - mechanism.c.position())
     st.success("Koordinaten von c und p0 wurden aktualisiert!")
 
 # Punkteingabe für neue Punkte
