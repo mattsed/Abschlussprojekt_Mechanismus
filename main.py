@@ -5,6 +5,7 @@ import time
 import json
 import os
 import csv
+from scipy.optimize import minimize
 
 # JSON-Datei für gespeicherte Mechanismen
 MECHANISM_FILE = "mechanisms.json"
@@ -21,7 +22,7 @@ class Point:
         self.fixed = fixed
 
     def position(self):
-        return (self.x, self.y)
+        return np.array([self.x, self.y])
 
     def move_to(self, x, y):
         if not self.fixed:
@@ -35,14 +36,14 @@ class Link:
     def __init__(self, point1, point2):
         self.p1 = point1
         self.p2 = point2
-        self.length = np.linalg.norm(np.array(self.p2.position()) - np.array(self.p1.position()))
+        self.length = np.linalg.norm(self.p2.position() - self.p1.position())
 
     def enforce_length(self):
-        vec = np.array(self.p2.position()) - np.array(self.p1.position())
+        vec = self.p2.position() - self.p1.position()
         if np.linalg.norm(vec) == 0:
             return
         unit_vec = vec / np.linalg.norm(vec)
-        new_pos = np.array(self.p1.position()) + self.length * unit_vec
+        new_pos = self.p1.position() + self.length * unit_vec
         self.p2.move_to(*new_pos)
 
 # ---------------------------------------------------------------
@@ -65,14 +66,33 @@ class Mechanism:
         new_p0_y = self.c.y + r * np.sin(self.theta)
         self.p0.move_to(new_p0_x, new_p0_y)
 
-        for link in self.links:
-            link.enforce_length()
+        self.optimize_lengths()
+
+    def optimize_lengths(self): 
+        def error_function(coords):
+            error = 0
+            for i, point in enumerate(self.points):
+                x, y = coords[2 * i], coords[2 * i + 1]
+                point.move_to(x, y)
+            for link in self.links:
+                error += (np.linalg.norm(link.p2.position() - link.p1.position()) - link.length) ** 2
+            return error
+        
+        initial_positions = []
+        for point in self.points:
+            initial_positions.extend([point.x, point.y])
+
+        result = minimize(error_function, initial_positions, method='Powell')
+        optimized_positions = result.x
+
+        for i, point in enumerate(self.points):
+            point.move_to(optimized_positions[2 * i], optimized_positions[2 * i + 1])
 
     def add_link(self, point1, point2):
         self.links.append(Link(point1, point2))
 
     def remove_link(self, point1_name, point2_name):
-        self.links = [link for link in self.links if not ((link.p1.name == point1_name and link.p2.name == point2_name) or (link.p1.name == point1_name and link.p2.name == point2_name))]
+        self.links = [link for link in self.links if not ((link.p1.name == point1_name and link.p2.name == point2_name) or (link.p1.name == point2_name and link.p2.name == point1_name))]
 
     def remove_point(self, point_name):
         self.points = [p for p in self.points if p.name != point_name]
@@ -225,7 +245,7 @@ st.header("Angelegte Links")
 for i, link in enumerate(mechanism.links):
     cols = st.columns([3, 1])
     cols[0].write(f"Link: {link.p1.name} - {link.p2.name}")
-    if cols[1].button("Löschen", key=f"delete_link_{i}"):
+    if cols[1].button("Löschen", key=f"delete_link_{link.p1.name}_{link.p2.name}_{i}"):
         mechanism.remove_link(link.p1.name, link.p2.name)
         st.experimental_rerun()
 
