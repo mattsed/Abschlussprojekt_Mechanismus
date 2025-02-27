@@ -37,13 +37,12 @@ if st.sidebar.button("Lade Mechanismus") and selected_mechanism:
     st.session_state.mechanism = Mechanism.from_dict(data)
     st.session_state.running = False
     st.session_state.trajectory = []
+    st.session_state.initial_mechanism = Mechanism.from_dict(data)  # Speichere die initiale Mechanismus-Position
     st.sidebar.success(f"Mechanismus '{selected_mechanism}' geladen!")
 
-# Button to delete the mechanism
+# Button zum Löschen des Mechanismus
 if st.sidebar.button("Lösche Mechanismus"):
-    if "mechanism" in st.session_state:
-        del st.session_state["mechanism"]
-    st.session_state.running = False
+    st.session_state.mechanism = Mechanism(Point(0, 0, "c"), Point(-15, 10, "p0"))
     st.session_state.trajectory = []
     st.sidebar.success("Mechanismus gelöscht!")
 
@@ -104,7 +103,7 @@ with st.sidebar.expander(f"Neue Verbindung:"):
 
 # Slider für die Winkelgeschwindigkeit hinzufügen
 st.sidebar.header("Winkelgeschwindigkeit einstellen")
-angular_velocity = st.sidebar.slider("Winkelgeschwindigkeit (Grad pro Sekunde)", 1.0, 30.0, 1.0, step=1.0)
+angular_velocity = st.sidebar.slider("Winkelgeschwindigkeit (Grad pro Sekunde)", 1.0, 15.0, 1.0, step=1.0)
 
 # Auswahl des Punktes für die Bahnkurve
 st.sidebar.header("Bahnkurve anzeigen")
@@ -119,7 +118,7 @@ if "trajectory" not in st.session_state:
 # ---------------------------------------------------------------------
 
 # Speichern
-if st.sidebar.button("Speichere Mechanismus"):
+if st.sidebar.button("Punkt übernehmen"):
     stored_mechanisms[mechanism_name] = mechanism.to_dict()
     with open(MECHANISM_FILE, "w", encoding="utf-8") as f:
         json.dump(stored_mechanisms, f, ensure_ascii=False, indent=2)
@@ -170,7 +169,7 @@ if link_data:
 else:
     st.sidebar.error("Keine Links im Mechanismus vorhanden.")
 
-# ---------------------------------------------------------------------
+
 # Ausgangsposition anzeigen
 # ---------------------------------------------------------------------
 def display_initial_position(mechanism):
@@ -186,7 +185,7 @@ def display_initial_position(mechanism):
     for link in mechanism.links:
         ax.plot([link.p1.x, link.p2.x], [link.p1.y, link.p2.y], color="blue", lw=2)
 
-    # Zeichne den gestrichelten roten Kreis um c
+  
     c = mechanism.c
     p0 = mechanism.p0
     radius = np.linalg.norm([p0.x - c.x, p0.y - c.y])
@@ -203,7 +202,7 @@ st.header("Ausgangsposition des Systems")
 display_initial_position(mechanism)
 
 # Animation
-animation_placeholder = st.empty()
+plot_placeholder = st.empty()
 
 # Start/Stop Button
 if "running" not in st.session_state:
@@ -211,9 +210,15 @@ if "running" not in st.session_state:
 
 if st.button("Animation starten / stoppen"):
     st.session_state.running = not st.session_state.running
+    if not st.session_state.running:
+        plot_placeholder.empty()
 
-if st.session_state.running:
-    run_animation(animation_placeholder, mechanism, angular_velocity, selected_point_name)
-else:
-    animation_placeholder.empty()
+run_animation(plot_placeholder, mechanism, angular_velocity, selected_point_name)
 
+animation_placeholder = st.empty()
+
+
+if "running" not in st.session_state:
+    st.session_state.running = True
+
+run_animation(animation_placeholder, mechanism, angular_velocity, selected_point_name)
