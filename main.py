@@ -37,7 +37,14 @@ if st.sidebar.button("Lade Mechanismus") and selected_mechanism:
     st.session_state.mechanism = Mechanism.from_dict(data)
     st.session_state.running = False
     st.session_state.trajectory = []
+    st.session_state.initial_mechanism = Mechanism.from_dict(data)  # Speichere die initiale Mechanismus-Position
     st.sidebar.success(f"Mechanismus '{selected_mechanism}' geladen!")
+
+# Button zum Löschen des Mechanismus
+if st.sidebar.button("Lösche Mechanismus"):
+    st.session_state.mechanism = Mechanism(Point(0, 0, "c"), Point(-15, 10, "p0"))
+    st.session_state.trajectory = []
+    st.sidebar.success("Mechanismus gelöscht!")
 
 # Mechanismus Nameingabe
 mechanism_name = st.sidebar.text_input("Mechanismus Name", value="")
@@ -96,7 +103,7 @@ with st.sidebar.expander(f"Neue Verbindung:"):
 
 # Slider für die Winkelgeschwindigkeit hinzufügen
 st.sidebar.header("Winkelgeschwindigkeit einstellen")
-angular_velocity = st.sidebar.slider("Winkelgeschwindigkeit (Grad pro Sekunde)", 1.0, 30.0, 1.0, step=1.0)
+angular_velocity = st.sidebar.slider("Winkelgeschwindigkeit (Grad pro Sekunde)", 1.0, 15.0, 1.0, step=1.0)
 
 # Auswahl des Punktes für die Bahnkurve
 st.sidebar.header("Bahnkurve anzeigen")
@@ -111,7 +118,7 @@ if "trajectory" not in st.session_state:
 # ---------------------------------------------------------------------
 
 # Speichern
-if st.sidebar.button("Speichere Mechanismus"):
+if st.sidebar.button("Punkt übernehmen"):
     stored_mechanisms[mechanism_name] = mechanism.to_dict()
     with open(MECHANISM_FILE, "w", encoding="utf-8") as f:
         json.dump(stored_mechanisms, f, ensure_ascii=False, indent=2)
@@ -203,5 +210,20 @@ if "running" not in st.session_state:
 
 if st.button("Animation starten / stoppen"):
     st.session_state.running = not st.session_state.running
+    if not st.session_state.running:
+        plot_placeholder.empty()
 
 run_animation(plot_placeholder, mechanism, angular_velocity, selected_point_name)
+
+# Reset Button
+if st.button("Reset Ausgangsposition"):
+    st.session_state.running = False  # Stoppe die Animation
+    st.session_state.mechanism = Mechanism.from_dict(st.session_state.initial_mechanism.to_dict())  # Mechanismus zurücksetzen
+    
+    # Aktualisiere die Darstellung
+    plot_placeholder.empty()  # Vorheriges Bild leeren
+    st.empty()  # Entferne den Plot der Animation
+    st.header("Ausgangsposition des Systems")
+    display_initial_position(st.session_state.initial_mechanism)  # Ausgangsposition erneut anzeigen
+
+    st.success("Ausgangsposition zurückgesetzt!")
