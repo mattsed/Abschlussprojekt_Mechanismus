@@ -39,6 +39,14 @@ if st.sidebar.button("Lade Mechanismus") and selected_mechanism:
     st.session_state.trajectory = []
     st.sidebar.success(f"Mechanismus '{selected_mechanism}' geladen!")
 
+# Button to delete the mechanism
+if st.sidebar.button("Lösche Mechanismus"):
+    if "mechanism" in st.session_state:
+        del st.session_state["mechanism"]
+    st.session_state.running = False
+    st.session_state.trajectory = []
+    st.sidebar.success("Mechanismus gelöscht!")
+
 # Mechanismus Nameingabe
 mechanism_name = st.sidebar.text_input("Mechanismus Name", value="")
 
@@ -208,3 +216,4 @@ if st.session_state.running:
     run_animation(animation_placeholder, mechanism, angular_velocity, selected_point_name)
 else:
     animation_placeholder.empty()
+
