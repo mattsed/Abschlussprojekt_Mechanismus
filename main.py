@@ -10,6 +10,20 @@ from point import Point
 from mechanism import Mechanism
 from animation import run_animation  # Importieren Sie die ausgelagerte Animationsfunktion
 
+st.markdown(
+    """
+    <style>
+        [data-testid="stSidebar"] {
+            min-width: 500px;  /* Ändere die Breite hier */
+            max-width: 900px;
+        }
+    </style>
+    """,
+    unsafe_allow_html=True
+)
+
+
+
 # JSON-Datei für gespeicherte Mechanismen
 MECHANISM_FILE = "mechanisms.json"
 CSV_FILE = "coordinates.csv"
@@ -156,7 +170,7 @@ for i, link in enumerate(mechanism.links):
 
 if link_data:
     df_links = pd.DataFrame(link_data)
-    st.sidebar.dataframe(df_links, height=300)  # Höhe der Tabelle angepasst
+    st.sidebar.dataframe(df_links, height=500, use_container_width=True)
 
     # Button zum Herunterladen der Stückliste als CSV
     csv = df_links.to_csv(index=False).encode('utf-8')
@@ -222,3 +236,5 @@ if "running" not in st.session_state:
     st.session_state.running = True
 
 run_animation(animation_placeholder, mechanism, angular_velocity, selected_point_name)
+
+
