@@ -3,9 +3,11 @@ import matplotlib.pyplot as plt
 import numpy as np
 import time
 from PIL import Image
+import pandas as pd
 
 def run_animation(plot_placeholder, mechanism, angular_velocity, selected_point_name):
-    """Lässt den Mechanismus animiert laufen und speichert nach 360° ein GIF in der Sidebar."""
+    
+
 
     fig, ax = plt.subplots()
     points = [mechanism.c, mechanism.p0] + mechanism.points
@@ -57,7 +59,11 @@ def run_animation(plot_placeholder, mechanism, angular_velocity, selected_point_
 
         # Prüfen, ob eine volle Umdrehung abgeschlossen wurde
         if abs((mechanism.theta - initial_theta) % (2 * np.pi)) < np.radians(angular_velocity) and not gif_created:
+            
+            
             print("Volle Umdrehung abgeschlossen! Speichere GIF...")
+            save_trajectory_to_csv()  # Speichert die Bahnkurve als CSV nach einer vollen Umdrehung
+
             gif_filename = "mechanism_animation.gif"
 
             if frames:
@@ -84,3 +90,12 @@ def run_animation(plot_placeholder, mechanism, angular_velocity, selected_point_
                 gif_created = True  # Verhindert mehrfaches Speichern des GIFs
 
         time.sleep(0.01)
+
+import pandas as pd
+
+def save_trajectory_to_csv():
+    if "trajectory" in st.session_state and len(st.session_state.trajectory) > 0:
+        df_trajectory = pd.DataFrame(st.session_state.trajectory, columns=["x", "y"])
+        csv_data = df_trajectory.to_csv(index=False).encode('utf-8')
+
+        st.session_state.csv_data = csv_data  # Speichert die CSV-Daten für den Download

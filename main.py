@@ -15,7 +15,7 @@ st.markdown(
     <style>
         [data-testid="stSidebar"] {
             min-width: 500px;  /* Ändere die Breite hier */
-            max-width: 900px;
+            max-width: 1000px;
         }
     </style>
     """,
@@ -231,6 +231,17 @@ run_animation(plot_placeholder, mechanism, angular_velocity, selected_point_name
 
 animation_placeholder = st.empty()
 
+
+
+st.markdown('<p style="font-size:10px;">Bahnkurven CSV Download erst nach stopp möglich</p>', unsafe_allow_html=True)
+
+if "csv_data" in st.session_state:
+    st.download_button(
+        label="Bahnkurve als CSV herunterladen",
+        data=st.session_state.csv_data,
+        file_name="bahnkurve.csv",
+        mime="text/csv"
+    )
 
 if "running" not in st.session_state:
     st.session_state.running = True
