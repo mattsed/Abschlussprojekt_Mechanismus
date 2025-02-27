@@ -8,7 +8,7 @@ import os
 import csv
 from point import Point
 from mechanism import Mechanism
-from animation import run_animation  # Importieren Sie die ausgelagerte Animationsfunktion
+from animation import run_animation  # Importieren Sie die ausgelagerte Animationsfunktion ich möchte auch das wenn ich in ein gelnk als bahmkurve auswhäle das das gespeoichert wird außerdem möchte ich auch das die geschindigkeit die ich fpr ein system einstelle gespeichert wird 
 
 st.markdown(
     """
@@ -247,5 +247,3 @@ if "running" not in st.session_state:
     st.session_state.running = True
 
 run_animation(animation_placeholder, mechanism, angular_velocity, selected_point_name)
-
-
